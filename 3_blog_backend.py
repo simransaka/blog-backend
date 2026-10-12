@@ -1,5 +1,7 @@
 from __future__ import annotations
 import operator
+import re
+import tempfile
 from typing import TypedDict, List, Annotated, Literal, Optional
 from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, START, END
@@ -9,7 +11,12 @@ from pathlib import Path
 from model import MODEL
 from langchain_community.tools.tavily_search import TavilySearchResults
 from dotenv import load_dotenv
-from prompts.prompts_3 import WORKER_SYSTEM, RESEARCH_SYSTEM, ROUTER_SYSTEM, PLANNER_PROMPT
+from prompts.prompts_3 import (
+    WORKER_SYSTEM,
+    RESEARCH_SYSTEM,
+    ROUTER_SYSTEM,
+    PLANNER_PROMPT,
+)
 
 load_dotenv()
 
@@ -20,17 +27,16 @@ class Task(BaseModel):
     title: str
     goal: str = Field(
         ...,
-        description="One sentence describing what the reader should be able to do/understand after this section"
+        description="One sentence describing what the reader should be able to do/understand after this section",
     )
     bullets: List[str] = Field(
         ...,
         min_length=3,
         max_length=5,
-        description="3-5 concrete, non-overlapping subpoints to cover in this section"
+        description="3-5 concrete, non-overlapping subpoints to cover in this section",
     )
     target_words: int = Field(
-        ...,
-        description="Target word count for this section (120-450)"
+        ..., description="Target word count for this section (120-450)"
     )
     tags: List[str] = Field(default_factory=list)
     requires_research: bool = False
@@ -42,7 +48,9 @@ class Plan(BaseModel):
     blog_title: str
     audience: str = Field(..., description="who this blog id for")
     tone: str = Field(..., description="Writing tone (e.g., practical, crisp)")
-    blog_kind: Literal["explainer", "tutorial", "news_roundup", "comparison", "system_design"] = "explainer"
+    blog_kind: Literal[
+        "explainer", "tutorial", "news_roundup", "comparison", "system_design"
+    ] = "explainer"
     constraints: List[str] = Field(default_factory=list)
     tasks: List[Task]
 
@@ -77,36 +85,32 @@ class State(TypedDict):
     plan: Optional[Plan]
 
     # will get from worker
-    sections: Annotated[List[tuple[int,str]], operator.add]
+    sections: Annotated[List[str], operator.add]
     final: str
 
 
 # router
 def router_node(state: State) -> dict:
+    print("on router node")
     topic = state["topic"]
     decider = ollama.chat(
         model=MODEL,
         messages=[
-            {
-                "role": "system",
-                "content":
-                ROUTER_SYSTEM
-            },
-            {
-                "role": "user",
-                "content":
-                f"Topic: {topic}"
-            }
+            {"role": "system", "content": ROUTER_SYSTEM},
+            {"role": "user", "content": f"Topic: {topic}"},
         ],
-        format=RouterDecision.model_json_schema()
+        format=RouterDecision.model_json_schema(),
     )
 
-    decision= RouterDecision.model_validate_json(decider.message.content)
+    decision = RouterDecision.model_validate_json(decider.message.content)
+
+    print("made a decision")
+    print("it needs research?: ", decision.needs_research)
 
     return {
         "needs_research": decision.needs_research,
         "mode": decision.mode,
-        "queries": decision.queries
+        "queries": decision.queries,
     }
 
 
@@ -117,30 +121,28 @@ def route_next(state: State) -> str:
 
 # research
 def research_node(state: State) -> dict:
-    queries = (state.get("queries", []) or [])
+    print("on research node")
+
+    queries = state.get("queries", []) or []
     MAX_RESULTS = 6
 
     raw_results: List[dict] = []
 
     for q in queries:
-        raw_results.extend(_tavily_search(q,max_results= MAX_RESULTS))
+        raw_results.extend(_tavily_search(q, max_results=MAX_RESULTS))
 
     if not raw_results:
         return {"evidence": []}
 
+    print("need to do tavily search")
+
     extractor = ollama.chat(
         model=MODEL,
         messages=[
-            {
-                "role": "system",
-                "content": RESEARCH_SYSTEM
-            },
-            {
-                "role": "user",
-                "content": f"Raw Results:\n{raw_results}"
-            },
+            {"role": "system", "content": RESEARCH_SYSTEM},
+            {"role": "user", "content": f"Raw Results:\n{raw_results}"},
         ],
-        format=EvidencePack.model_json_schema()
+        format=EvidencePack.model_json_schema(),
     )
 
     pack = EvidencePack.model_validate_json(extractor.message.content)
@@ -150,14 +152,16 @@ def research_node(state: State) -> dict:
         if e.url:
             deduplicate[e.url] = e
 
+    print("tavily search done")
+
     return {"evidence": list(deduplicate.values())}
 
 
 # tavily search
 def _tavily_search(query: str, max_results: int = 5) -> List[dict]:
-    print("need to search tavily.")
+    print("doing search in tavily.")
     print("searching...")
-    tool = TavilySearchResults(max_results = max_results)
+    tool = TavilySearchResults(max_results=max_results)
     results = tool.invoke({"query": query})
 
     normalized: List[dict] = []
@@ -187,20 +191,16 @@ def planner(state: State) -> dict:
     msg = ollama.chat(
         model=MODEL,
         messages=[
-            {
-                "role": "system",
-                "content": PLANNER_PROMPT
-                    
-            },
+            {"role": "system", "content": PLANNER_PROMPT},
             {
                 "role": "user",
                 "content": f"Topic: {state['topic']}\n"
-                    f"Mode: {mode}\n\n"
-                    f"Evidence (ONLY use for fresh claims; may be empty):\n"
-                    f"{[e.model_dump() for e in evidence][:16]}"
-            }
+                f"Mode: {mode}\n\n"
+                f"Evidence (ONLY use for fresh claims; may be empty):\n"
+                f"{[e.model_dump() for e in evidence][:16]}",
+            },
         ],
-        format=Plan.model_json_schema()
+        format=Plan.model_json_schema(),
     )
     print("planner working...")
     plan = Plan.model_validate_json(msg.message.content)
@@ -211,17 +211,18 @@ def planner(state: State) -> dict:
 # intermediate function
 def fanout(state: State):
     print("fanout called...")
-    return [Send(
-        "worker",
-        {
-            "task": task,
-            "topic": state["topic"],
-            "plan": state["plan"],
-            "mode": state["mode"],
-            "evidence": [e.model_dump() for e in state.get("evidence", [])]
-        }
-    )
-    for task in state["plan"].tasks
+    return [
+        Send(
+            "worker",
+            {
+                "task": task,
+                "topic": state["topic"],
+                "plan": state["plan"],
+                "mode": state["mode"],
+                "evidence": [e.model_dump() for e in state.get("evidence", [])],
+            },
+        )
+        for task in state["plan"].tasks
     ]
 
 
@@ -234,7 +235,6 @@ def worker(payload: dict) -> dict:
     evidence = [EvidenceItem(**e) for e in payload.get("evidence", [])]
     mode = payload.get("mode", "closed_book")
 
-
     blog_title = plan.blog_title
     bullets_text = "\n- " + "\n- ".join(task.bullets)
 
@@ -245,36 +245,32 @@ def worker(payload: dict) -> dict:
             for e in evidence[:20]
         )
 
+    print("worker in process")
+
     response = ollama.chat(
         model=MODEL,
         messages=[
+            {"role": "system", "content": WORKER_SYSTEM},
             {
-                "role": "system",
-                "content":
-                    WORKER_SYSTEM
-
+                "role": "user",
+                "content": f"Blog title: {plan.blog_title}\n"
+                f"Audience: {plan.audience}\n"
+                f"Tone: {plan.tone}\n"
+                f"Blog kind: {plan.blog_kind}\n"
+                f"Constraints: {plan.constraints}\n"
+                f"Topic: {topic}\n"
+                f"Mode: {mode}\n\n"
+                f"Section title: {task.title}\n"
+                f"Goal: {task.goal}\n"
+                f"Target words: {task.target_words}\n"
+                f"Tags: {task.tags}\n"
+                f"requires_research: {task.requires_research}\n"
+                f"requires_citations: {task.requires_citations}\n"
+                f"requires_code: {task.requires_code}\n"
+                f"Bullets:{bullets_text}\n\n"
+                f"Evidence (ONLY use these URLs when citing):\n{evidence_text}\n",
             },
-            {
-                "role":"user",
-                "content": 
-                    f"Blog title: {plan.blog_title}\n"
-                    f"Audience: {plan.audience}\n"
-                    f"Tone: {plan.tone}\n"
-                    f"Blog kind: {plan.blog_kind}\n"
-                    f"Constraints: {plan.constraints}\n"
-                    f"Topic: {topic}\n"
-                    f"Mode: {mode}\n\n"
-                    f"Section title: {task.title}\n"
-                    f"Goal: {task.goal}\n"
-                    f"Target words: {task.target_words}\n"
-                    f"Tags: {task.tags}\n"
-                    f"requires_research: {task.requires_research}\n"
-                    f"requires_citations: {task.requires_citations}\n"
-                    f"requires_code: {task.requires_code}\n"
-                    f"Bullets:{bullets_text}\n\n"
-                    f"Evidence (ONLY use these URLs when citing):\n{evidence_text}\n"
-            }
-        ]
+        ],
     )
 
     section_md = response.message.content.strip()
@@ -285,20 +281,50 @@ def worker(payload: dict) -> dict:
 # join results of all workers to a complete blog, and saves it as a markdown file
 def reducer(state: State) -> dict:
     print("reducer called...")
-    title = state["plan"].blog_title
-    body = "\n\n".join(state["sections"]).strip()
+    plan = state.get("plan")
+    if plan is None:
+        raise ValueError("Cannot save a blog without a generated plan.")
+
+    title = plan.blog_title.strip()
+    if not title:
+        raise ValueError("Cannot save a blog with an empty title.")
+
+    sections = state["sections"]
+    if not sections or any(not section.strip() for section in sections):
+        raise ValueError("Cannot save a blog with missing or empty sections.")
+
+    body = "\n\n".join(section.strip() for section in sections)
 
     final_md = f"# {title}\n\n{body}"
     print("final_md ready")
 
-    # save to a file
-    filename = title.lower().replace(" ", "_") + ".md"
-    output_path = Path(filename)
-    output_path.write_text(final_md, encoding="utf-8")
+    slug = re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_")
+    if not slug:
+        raise ValueError("Cannot create a Markdown filename from the blog title.")
+
+    output_path = Path(__file__).parent / f"{slug}.md"
+    temporary_path: Optional[Path] = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=output_path.parent,
+            prefix=f".{slug}_",
+            suffix=".tmp",
+            delete=False,
+        ) as temporary_file:
+            temporary_path = Path(temporary_file.name)
+            temporary_file.write(final_md)
+            temporary_file.flush()
+
+        temporary_path.replace(output_path)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
     print("file ready")
 
     return {"final": final_md}
-
 
 
 graph = StateGraph(State)
@@ -315,19 +341,10 @@ graph.add_node("router", router_node)
 # graph - edges
 graph.add_edge(START, "router")
 graph.add_conditional_edges(
-    "router",
-    route_next,
-    {
-        "research": "research",
-        "planner": "planner"
-    }
+    "router", route_next, {"research": "research", "planner": "planner"}
 )
 graph.add_edge("research", "planner")
-graph.add_conditional_edges(
-    "planner",
-    fanout,
-    ["worker"]
-)
+graph.add_conditional_edges("planner", fanout, ["worker"])
 graph.add_edge("worker", "reducer")
 graph.add_edge("reducer", END)
 
@@ -336,4 +353,9 @@ blog = graph.compile()
 
 
 # invoke
-out = blog.invoke({"topic": "Write a blog on AI in 2026", "section": []})
+out = blog.invoke(
+    {
+        "topic": "Write a blog on new discoveries in science in september 2026",
+        "sections": [],
+    }
+)
