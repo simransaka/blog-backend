@@ -1,17 +1,19 @@
 from langgraph.graph import StateGraph, START, END
 
-from src.state import State
+from src import State
 
-from src.router.route import (
+from src.router import (
     router_node,
     route_next
 )
+from src.services import (
+    planner,
+    worker,
+    reducer,
+    fanout
+)
+from src.retrieval import research_node
 
-from src.services.planner_service import planner
-from src.services.worker_service import worker
-from src.services.reducer_service import reducer
-from src.services.fanout_service import fanout
-from src.retrieval.research_node import research_node
 
 graph = StateGraph(State)
 

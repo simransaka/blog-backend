@@ -6,7 +6,7 @@ import ollama
 
 from src.models.router_decision import RouterDecision
 from src.prompts.router import ROUTER_SYSTEM
-from src.config import MODEL
+from src import MODEL
 
 
 

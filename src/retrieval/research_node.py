@@ -5,12 +5,11 @@ from typing import List
 from src.state import State
 
 import ollama
-from langchain_community.tools.tavily_search import TavilySearchResults
 
-from src.retrieval.tavily_search import _tavily_search
+from src.retrieval import _tavily_search
 from src.models.evidence_pack import EvidencePack
-from src.config import MODEL
-from src.prompts.research import RESEARCH_SYSTEM
+from src import MODEL
+from src.prompts import RESEARCH_SYSTEM
 
 
 # research

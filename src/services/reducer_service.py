@@ -3,12 +3,8 @@ from __future__ import annotations
 import re
 import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 from src.state import State
-from langgraph.types import Send
-
-import ollama
-from langchain_community.tools.tavily_search import TavilySearchResults
 
 
 # join results of all workers to a complete blog, and saves it as a markdown file

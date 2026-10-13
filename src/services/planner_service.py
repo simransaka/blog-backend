@@ -6,8 +6,8 @@ from langgraph.types import Send
 import ollama
 
 from src.models.plan import Plan
-from src.config import MODEL
-from src.prompts.planner import PLANNER_PROMPT
+from src import MODEL
+from src.prompts import PLANNER_PROMPT
 
 
 def planner(state: State) -> dict:

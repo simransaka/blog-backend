@@ -1,18 +1,10 @@
 from __future__ import annotations
 
-import re
-import tempfile
-from pathlib import Path
-from typing import List, Optional
-from src.state import State
-from langgraph.types import Send
-
 import ollama
-from langchain_community.tools.tavily_search import TavilySearchResults
 
 from src.models.evidence_item import EvidenceItem
-from src.config import MODEL
-from src.prompts.worker import WORKER_SYSTEM
+from src import MODEL
+from src.prompts import WORKER_SYSTEM
 
 
 
