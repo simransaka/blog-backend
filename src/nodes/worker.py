@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import ollama
 
-from src.models.evidence_item import EvidenceItem
-from src import MODEL
-from src.prompts import WORKER_SYSTEM
-
+from src.models import EvidenceItem
+from src.config import MODEL
+from src.prompts import WORKER_PROMPT
+from src.config import WORKER_MAX_EVIDENCE
 
 
 # worker - generate content for one blog section
@@ -16,23 +16,22 @@ def worker(payload: dict) -> dict:
     plan = payload["plan"]
     evidence = [EvidenceItem(**e) for e in payload.get("evidence", [])]
     mode = payload.get("mode", "closed_book")
-
-    blog_title = plan.blog_title
+    
     bullets_text = "\n- " + "\n- ".join(task.bullets)
 
     evidence_text = ""
     if evidence:
         evidence_text = "\n".join(
-            f"- {e.title} | {e.url} | {e.published_at or 'date:unknown'}".strip()
-            for e in evidence[:20]
+            f"- {e.title} | {e.url} | {e.published_at or 'date:unknown'} | {e.snippet or 'No snippet available'}".strip()
+            for e in evidence[:WORKER_MAX_EVIDENCE]
         )
-
-    print("worker in process")
+        
+    print(f"Task id: {task.id} being processed")
 
     response = ollama.chat(
         model=MODEL,
         messages=[
-            {"role": "system", "content": WORKER_SYSTEM},
+            {"role": "system", "content": WORKER_PROMPT},
             {
                 "role": "user",
                 "content": f"Blog title: {plan.blog_title}\n"
@@ -56,5 +55,5 @@ def worker(payload: dict) -> dict:
     )
 
     section_md = response.message.content.strip()
-    print("sections ready...")
-    return {"sections": [section_md]}
+    print(f"For task id: {task.id}, section is ready")
+    return {"sections": [(task.id, section_md)]}

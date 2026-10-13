@@ -1,4 +1,19 @@
-from .worker import WORKER_SYSTEM
-from .planner import PLANNER_PROMPT
-from .research import RESEARCH_SYSTEM
-from .router import ROUTER_SYSTEM
+from pathlib import Path
+
+PROMPTS_DIR = Path(__file__).resolve().parent
+
+PLANNER_PROMPT = (PROMPTS_DIR / "planner_prompt.md").read_text(
+    encoding="utf-8"
+)
+
+WORKER_PROMPT = (PROMPTS_DIR / "worker_prompt.md").read_text(
+    encoding="utf-8"
+)
+
+RESEARCH_PROMPT = (PROMPTS_DIR / "research_prompt.md").read_text(
+    encoding="utf-8"
+)
+
+ROUTER_PROMPT = (PROMPTS_DIR / "router_prompt.md").read_text(
+    encoding="utf-8"
+)

@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import re
+import sys
 import tempfile
 from pathlib import Path
 from typing import Optional
 from src.state import State
+
+
+OUTPUT_DIR = Path(__file__).resolve().parents[2] / "outputs"
 
 
 # join results of all workers to a complete blog, and saves it as a markdown file
@@ -18,21 +22,34 @@ def reducer(state: State) -> dict:
     if not title:
         raise ValueError("Cannot save a blog with an empty title.")
 
-    sections = state["sections"]
-    if not sections or any(not section.strip() for section in sections):
+    sections = state.get("sections", [])
+
+    if not sections or any(not section.strip() for _, section in sections):
         raise ValueError("Cannot save a blog with missing or empty sections.")
 
-    body = "\n\n".join(section.strip() for section in sections)
+    # Sort by task ID, then extract and validate Markdown.
+    sorted_sections = sorted(sections, key=lambda item: item[0])
 
+    markdown_sections = [
+        markdown.strip()
+        for _, markdown in sorted_sections
+    ]
+
+    if any(not section for section in markdown_sections):
+        raise ValueError("Cannot save a blog with missing or empty sections.")
+
+    body = "\n\n".join(markdown_sections)
     final_md = f"# {title}\n\n{body}"
+    
     print("final_md ready")
 
     slug = re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_")
     if not slug:
         raise ValueError("Cannot create a Markdown filename from the blog title.")
 
-    output_path = Path(__file__).parent.parent / "outputs" / f"{slug}.md"
-
+    output_path = OUTPUT_DIR / f"{slug}.md"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
     temporary_path: Optional[Path] = None
     try:
         with tempfile.NamedTemporaryFile(

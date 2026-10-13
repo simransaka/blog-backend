@@ -6,10 +6,10 @@ from src.state import State
 
 import ollama
 
-from src.retrieval import _tavily_search
-from src.models.evidence_pack import EvidencePack
-from src import MODEL
-from src.prompts import RESEARCH_SYSTEM
+from src.services import tavily_search
+from src.models import EvidencePack
+from src.config import MAX_RESULTS, MODEL
+from src.prompts import RESEARCH_PROMPT
 
 
 # research
@@ -17,24 +17,27 @@ def research_node(state: State) -> dict:
     print("on research node")
 
     queries = state.get("queries", []) or []
-    MAX_RESULTS = 6
 
     raw_results: List[dict] = []
 
     for q in queries:
-        raw_results.extend(_tavily_search(q, max_results=MAX_RESULTS))
+        raw_results.extend(
+            tavily_search(q, max_results=MAX_RESULTS)
+        )
+
 
     if not raw_results:
         return {"evidence": []}
 
-    print("need to do tavily search")
+    print(f"Collected {len(raw_results)} raw results.")
 
     extractor = ollama.chat(
         model=MODEL,
         messages=[
-            {"role": "system", "content": RESEARCH_SYSTEM},
+            {"role": "system", "content": RESEARCH_PROMPT},
             {"role": "user", "content": f"Raw Results:\n{raw_results}"},
         ],
+        options={"num_ctx": 8192},
         format=EvidencePack.model_json_schema(),
     )
 
@@ -46,5 +49,6 @@ def research_node(state: State) -> dict:
             deduplicate[e.url] = e
 
     print("tavily search done")
+    print(f"Research completed. Unique sources: {len(deduplicate)}")
 
     return {"evidence": list(deduplicate.values())}

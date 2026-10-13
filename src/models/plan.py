@@ -6,7 +6,7 @@ from src.models.task import Task
 
 class Plan(BaseModel):
     blog_title: str
-    audience: str = Field(..., description="who this blog id for")
+    audience: str = Field(..., description="For whom this blog is")
     tone: str = Field(..., description="Writing tone (e.g., practical, crisp)")
     blog_kind: Literal[
         "explainer", "tutorial", "news_roundup", "comparison", "system_design"

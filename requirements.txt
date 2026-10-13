@@ -1,8 +1,11 @@
-langgraph
-ollama
-pydantic
-langchain-community
-python-dotenv
+langgraph==1.2.12
+langchain==1.4.2
+langchain-core==1.6.6
+langchain-tavily==0.2.18
+ollama==0.6.2
+pydantic==2.13.5
+python-dotenv==1.2.4
+
 
 # Install the dependencies:
 # pip install -r requirements.txt

@@ -4,9 +4,9 @@ from src.state import State
 
 import ollama
 
-from src.models.router_decision import RouterDecision
-from src.prompts.router import ROUTER_SYSTEM
-from src import MODEL
+from src.models import RouterDecision
+from src.prompts import ROUTER_PROMPT
+from src.config import MODEL
 
 
 
@@ -16,7 +16,7 @@ def router_node(state: State) -> dict:
     decider = ollama.chat(
         model=MODEL,
         messages=[
-            {"role": "system", "content": ROUTER_SYSTEM},
+            {"role": "system", "content": ROUTER_PROMPT},
             {"role": "user", "content": f"Topic: {topic}"},
         ],
         format=RouterDecision.model_json_schema(),
