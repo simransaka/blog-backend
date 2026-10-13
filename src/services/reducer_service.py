@@ -35,7 +35,8 @@ def reducer(state: State) -> dict:
     if not slug:
         raise ValueError("Cannot create a Markdown filename from the blog title.")
 
-    output_path = Path(__file__).parent / "outputs" / f"{slug}.md"
+    output_path = Path(__file__).parent.parent / "outputs" / f"{slug}.md"
+
     temporary_path: Optional[Path] = None
     try:
         with tempfile.NamedTemporaryFile(
