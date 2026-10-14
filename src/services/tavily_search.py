@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 from typing import List
+import logging
 
 from langchain_tavily import TavilySearch
 
 
 tool = TavilySearch(max_results=5)
 
+logger = logging.getLogger(__name__)
+
 
 def tavily_search(query: str, max_results: int = 5) -> List[dict]:
-    print("Searching Tavily...")
+    logger.info("Searching Tavily...")
 
     if max_results != 5:
         search_tool = TavilySearch(max_results=max_results)
@@ -21,6 +24,7 @@ def tavily_search(query: str, max_results: int = 5) -> List[dict]:
     })
 
     if isinstance(results, dict) and "error" in results:
+        logger.error("Tavily search failed: %s", results["error"])
         raise RuntimeError(f"Tavily search failed: {results['error']}")
 
     if isinstance(results, dict):
@@ -34,6 +38,7 @@ def tavily_search(query: str, max_results: int = 5) -> List[dict]:
 
     for r in results or []:
         if not isinstance(r, dict):
+            logger.warning("Skipping unexpected result type: %s", type(r).__name__)
             continue
         
         normalized.append(
@@ -45,5 +50,6 @@ def tavily_search(query: str, max_results: int = 5) -> List[dict]:
                 "source": r.get("source"),
             }
         )
-
+    logger.info("Tavily search completed: %d results", len(normalized))
+    
     return normalized

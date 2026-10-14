@@ -4,6 +4,7 @@ from src.state import State
 
 import ollama
 from pydantic import ValidationError
+import logging
 
 from src.models import Plan
 from src.prompts import PLANNER_PROMPT
@@ -13,9 +14,10 @@ from src.config import (
     MODEL
 )
 
+logger = logging.getLogger(__name__)
 
 def planner(state: State) -> dict:
-    print("called planner...")
+    logger.info("Planner called")
 
     evidence = state.get("evidence", [])
     mode = state.get("mode", "closed_book")
@@ -43,16 +45,16 @@ def planner(state: State) -> dict:
             format=Plan.model_json_schema(),
         )
 
-        print(f"Planner validation attempt {attempt}/{max_attempts}...")
+        logger.info(f"Planner validation attempt {attempt}/{max_attempts}...")
 
         try:
             plan = Plan.model_validate_json(msg.message.content)
-            print("planner completed...")
+            logger.info("Planner planned the flow")
             return {"plan": plan}
 
         except ValidationError as exc:
             last_error = exc
-            print(f"Planner output validation failed: {exc}")
+            logger.error(f"Planner output validation failed: {exc}")
 
             if attempt < max_attempts:
                 messages = messages + [
@@ -72,6 +74,8 @@ def planner(state: State) -> dict:
                     },
                 ]
 
+    logger.error(f"Planner failed to produce a valid Plan after {max_attempts} attempts.")
+    
     raise ValueError(
         f"Planner failed to produce a valid Plan after {max_attempts} attempts."
     ) from last_error

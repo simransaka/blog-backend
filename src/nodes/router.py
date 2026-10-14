@@ -3,15 +3,16 @@ from __future__ import annotations
 from src.state import State
 
 import ollama
+import logging
 
 from src.models import RouterDecision
 from src.prompts import ROUTER_PROMPT
 from src.config import MODEL
 
-
+logger = logging.getLogger(__name__)
 
 def router_node(state: State) -> dict:
-    print("on router node")
+    logger.info("Router started")
     topic = state["topic"]
     decider = ollama.chat(
         model=MODEL,
@@ -24,8 +25,8 @@ def router_node(state: State) -> dict:
 
     decision = RouterDecision.model_validate_json(decider.message.content)
 
-    print("made a decision")
-    print("it needs research?: ", decision.needs_research)
+    logger.info("Router made a decision")
+    print("Router needs research?: ", decision.needs_research)
 
     return {
         "needs_research": decision.needs_research,

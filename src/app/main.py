@@ -1,9 +1,12 @@
 import argparse
 
+from src.config import setup_logging
 from src.graph.graph import blog
 
 
 def main() -> None:
+    setup_logging()
+    
     parser = argparse.ArgumentParser(
         description="Generate a blog post on a given topic"
     )

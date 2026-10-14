@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import ollama
+import logging
 
 from src.models import EvidenceItem
 from src.config import MODEL
 from src.prompts import WORKER_PROMPT
 from src.config import WORKER_MAX_EVIDENCE
 
+logger = logging.getLogger(__name__)
+
 
 # worker - generate content for one blog section
 def worker(payload: dict) -> dict:
-    print("worker called...")
+    logger.info("Worker started")
     task = payload["task"]
     topic = payload["topic"]
     plan = payload["plan"]
@@ -26,7 +29,7 @@ def worker(payload: dict) -> dict:
             for e in evidence[:WORKER_MAX_EVIDENCE]
         )
         
-    print(f"Task id: {task.id} being processed")
+    logger.info(f"Task id: {task.id} being processed")
 
     response = ollama.chat(
         model=MODEL,
@@ -55,5 +58,5 @@ def worker(payload: dict) -> dict:
     )
 
     section_md = response.message.content.strip()
-    print(f"For task id: {task.id}, section is ready")
+    logger.info(f"For task id: {task.id}, section is ready")
     return {"sections": [(task.id, section_md)]}

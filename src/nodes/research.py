@@ -5,18 +5,22 @@ from typing import List
 from src.state import State
 
 import ollama
+import logging
 
 from src.services import tavily_search
 from src.models import EvidencePack
 from src.config import MAX_RESULTS, MODEL
 from src.prompts import RESEARCH_PROMPT
 
+logger = logging.getLogger(__name__)
 
 # research
 def research_node(state: State) -> dict:
-    print("on research node")
+    logger.info("Rsearching on the queries")
 
     queries = state.get("queries", []) or []
+
+    logger.info(f"Queries: {queries}")
 
     raw_results: List[dict] = []
 
@@ -29,7 +33,7 @@ def research_node(state: State) -> dict:
     if not raw_results:
         return {"evidence": []}
 
-    print(f"Collected {len(raw_results)} raw results.")
+    logger.info(f"Collected {len(raw_results)} raw results.")
 
     extractor = ollama.chat(
         model=MODEL,
@@ -48,7 +52,7 @@ def research_node(state: State) -> dict:
         if e.url:
             deduplicate[e.url] = e
 
-    print("tavily search done")
-    print(f"Research completed. Unique sources: {len(deduplicate)}")
+    logger.info("Tavily search done")
+    logger.info(f"Research completed. Unique sources: {len(deduplicate)}")
 
     return {"evidence": list(deduplicate.values())}

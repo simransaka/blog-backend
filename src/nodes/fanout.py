@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from src.state import State
 from langgraph.types import Send
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # intermediate function
 def fanout(state: State):
-    print("fanout called...")
+    logger.info("Called Fanout")
     return [
         Send(
             "worker",
