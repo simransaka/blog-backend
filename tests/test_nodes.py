@@ -5,7 +5,7 @@ from src.nodes import route_next
 import src.nodes as reducer
 
 tavily_module = importlib.import_module(
-    "src.services.tavily_search"
+    "src.tools.web_search"
 )
 
 reducer_module = importlib.import_module("src.nodes.reducer")
@@ -72,7 +72,7 @@ def test_tavily_result_normalization(monkeypatch):
         fake_invoke,
     )
 
-    results = tavily_module.tavily_search(
+    results = tavily_module.web_search(
         "science discoveries",
         max_results=3,
     )

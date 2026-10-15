@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 def planner(state: State) -> dict:
     logger.info("Planner called")
 
-    evidence = state.get("evidence", [])
+    evidence = state.get("approved_evidence", [])
     mode = state.get("mode", "closed_book")
 
     messages = [
@@ -30,7 +30,7 @@ def planner(state: State) -> dict:
                 f"Topic: {state['topic']}\n"
                 f"Mode: {mode}\n\n"
                 f"Evidence (ONLY use for fresh claims; may be empty):\n"
-                f"{[e.model_dump() for e in evidence[:PLANNER_MAX_EVIDENCE]]}"
+                f"{evidence[:PLANNER_MAX_EVIDENCE]}"
             ),
         },
     ]

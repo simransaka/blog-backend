@@ -17,3 +17,11 @@ RESEARCH_PROMPT = (PROMPTS_DIR / "research_prompt.md").read_text(
 ROUTER_PROMPT = (PROMPTS_DIR / "router_prompt.md").read_text(
     encoding="utf-8"
 )
+
+ORCHESTRATOR_PROMPT = (PROMPTS_DIR / "orchestrator_prompt.md").read_text(
+    encoding="utf-8"
+)
+
+EVALUATOR_PROMPT = (PROMPTS_DIR / "evaluator_prompt.md").read_text(
+    encoding="utf-8"
+)

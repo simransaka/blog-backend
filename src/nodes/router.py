@@ -31,10 +31,4 @@ def router_node(state: State) -> dict:
     return {
         "needs_research": decision.needs_research,
         "mode": decision.mode,
-        "queries": decision.queries,
     }
-
-
-# route decision
-def route_next(state: State) -> str:
-    return "research" if state["needs_research"] else "planner"

@@ -18,7 +18,7 @@ def fanout(state: State):
                 "topic": state["topic"],
                 "plan": state["plan"],
                 "mode": state["mode"],
-                "evidence": [e.model_dump() for e in state.get("evidence", [])],
+                "evidence": state.get("evidence", []),
             },
         )
         for task in state["plan"].tasks

@@ -7,7 +7,7 @@ from src.state import State
 import ollama
 import logging
 
-from src.services import tavily_search
+from src.tools import web_search
 from src.models import EvidencePack
 from src.config import MAX_RESULTS, MODEL
 from src.prompts import RESEARCH_PROMPT
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # research
 def research_node(state: State) -> dict:
-    logger.info("Rsearching on the queries")
+    logger.info("Researching on the queries")
 
     queries = state.get("queries", []) or []
 
@@ -26,7 +26,7 @@ def research_node(state: State) -> dict:
 
     for q in queries:
         raw_results.extend(
-            tavily_search(q, max_results=MAX_RESULTS)
+            web_search(q, max_results=MAX_RESULTS)
         )
 
 
@@ -35,6 +35,7 @@ def research_node(state: State) -> dict:
 
     logger.info(f"Collected {len(raw_results)} raw results.")
 
+    # submit_evidence
     extractor = ollama.chat(
         model=MODEL,
         messages=[
