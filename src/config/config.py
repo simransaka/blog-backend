@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+from pathlib import Path
 
 load_dotenv()
 
@@ -19,3 +20,9 @@ TIMEOUT = 15
 # orchestrator
 MAX_RESEARCH_STEPS = 8
 MAX_FETCHES = 4
+
+
+# assets directory
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ASSETS_DIR = PROJECT_ROOT / "assets"
+ASSETS_DIR.mkdir(parents=True, exist_ok=True)

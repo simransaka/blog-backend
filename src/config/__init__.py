@@ -7,7 +7,8 @@ from .config import (
     MAX_CHARACTERS,
     TIMEOUT,
     MAX_FETCHES,
-    MAX_RESEARCH_STEPS
+    MAX_RESEARCH_STEPS,
+    ASSETS_DIR
 )
 
 from .logging_config import setup_logging

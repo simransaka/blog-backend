@@ -1,6 +1,7 @@
 from langgraph.graph import StateGraph, START, END
 
 from src.state import State
+from src.config import ASSETS_DIR
 
 from src.nodes import (
     router_node,
@@ -56,5 +57,5 @@ blog = graph.compile()
 
 png_data = blog.get_graph().draw_mermaid_png()
 
-with open("graph.png", "wb") as file:
+with open(ASSETS_DIR / "graph.png", "wb") as file:
     file.write(png_data)
