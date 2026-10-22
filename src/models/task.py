@@ -4,19 +4,24 @@ from pydantic import BaseModel, Field
 
 class Task(BaseModel):
     id: int
-    title: str
+    title: str = Field(
+        ...,
+        description="Clear, engaging title appropriate for the section's content."
+        )
     goal: str = Field(
         ...,
-        description="One sentence describing what the reader should be able to do/understand after this section",
+        description="""
+            One sentence describing what the reader should learn, understand, feel,
+            or be able to do after reading this section."""
     )
     bullets: List[str] = Field(
         ...,
         min_length=3,
         max_length=5,
-        description="3-5 concrete, non-overlapping subpoints to cover in this section",
+        description="3-5 concrete, relevant, non-overlapping subpoints that collectively fulfill the section goal",
     )
     target_words: int = Field(
-        ..., description="Target word count for this section (120-450)"
+        ..., description="Target word count for this section (120-200)"
     )
     tags: List[str] = Field(default_factory=list)
     requires_research: bool = False

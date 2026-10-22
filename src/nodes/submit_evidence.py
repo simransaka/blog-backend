@@ -13,14 +13,14 @@ logger = logging.getLogger(__name__)
 
 
 
-def submit_evidence_node(state: State) -> dict:
+def submit_evidence(state: State) -> dict:
     """Validate and submit the collected research evidence."""
 
     items = state.get("evidence", [])
     unique_items = {}
 
     logger.info(
-            "Called: submit_evidence_node | Arguments: items_count=%d",
+            "Called: submit_evidence | Arguments: items_count=%d",
             len(items),
     )
 

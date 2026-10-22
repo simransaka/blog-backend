@@ -3,7 +3,10 @@ from typing import TypedDict, List, Annotated, Optional, Literal
 from langgraph.graph.message import add_messages
 
 from src.models.plan import Plan
-from src.models.evidence_item import EvidenceItem
+from src.models import (
+    EvidenceItem,
+    CritiqueResponse
+)
 
 
 class State(TypedDict):
@@ -27,6 +30,11 @@ class State(TypedDict):
     evaluator_feedback: str
     research_steps: int
     fetch_count: int
+    web_search_count: int
 
     # submit_evidence result
     approved_evidence: list[dict]
+
+    # critique
+    revision_count: int
+    critique: CritiqueResponse | None

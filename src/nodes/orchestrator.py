@@ -61,7 +61,7 @@ TOOL_MAP = {
     "fetch_page": fetch_page
 }
 
-def orchestrator_node(state: State):
+def orchestrator(state: State):
     logger.info("Orchestrator started")
 
     messages=[
@@ -79,9 +79,10 @@ def orchestrator_node(state: State):
         }
     ]
 
-    research_steps = 0
-    fetch_count = 0
-    collected_evidence = []
+    research_steps = state.get("research_steps", 0)
+    web_search_count = state.get("web_search_count", 0)
+    fetch_count = state.get("fetch_count", 0)
+    collected_evidence = list(state.get("evidence", []))
 
     while research_steps < MAX_RESEARCH_STEPS:
         response = ollama.chat(
@@ -104,9 +105,13 @@ def orchestrator_node(state: State):
             name = call.function.name
             args = call.function.arguments or {}
 
-            research_steps +=1
+            logger.info(f"Args: {args}")
 
-            if name == "fetch_page" and fetch_count >=MAX_FETCHES:
+            if name == "web_search" and web_search_count >=2:
+                logger.info("Tavily search limit reached.")
+                result = "Search limit reached. Use existing evidence"
+
+            elif name == "fetch_page" and fetch_count >=MAX_FETCHES:
                 logger.error("Page fetch limit reached.")
                 result = "Page fetch limit reached."
             elif name not in TOOL_MAP:
@@ -114,9 +119,16 @@ def orchestrator_node(state: State):
                 result = f"Unknown tool: {name}"
             else:
                 try:
-                    if name == "fetch_page":
-                        logger.info("Fetching web page")
+                    if name == "web_search":
+                        web_search_count +=1
+                        logger.info(f"Tavily search {web_search_count}")
+
+                    elif name == "fetch_page":
                         fetch_count +=1
+                        logger.info(f"Fetching web page count {fetch_count}")
+
+                    research_steps +=1
+                        
 
                     result = TOOL_MAP[name].invoke(args)
 
@@ -140,6 +152,7 @@ def orchestrator_node(state: State):
     logger.info("Page content fetched")
             
     return {
+        "web_search_count": web_search_count,
         "evidence": collected_evidence,
         "research_steps": research_steps,
         "fetch_count": fetch_count,

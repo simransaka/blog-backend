@@ -9,7 +9,7 @@ from src.state import State
 logger = logging.getLogger(__name__)
 
 
-def evaluator_node(state: State) -> dict:
+def evaluator(state: State) -> dict:
     """Evaluate whether the collected evidence is sufficient."""
 
     evidence = state.get("evidence", [])[:10]

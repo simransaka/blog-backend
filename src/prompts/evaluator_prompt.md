@@ -21,7 +21,7 @@ Evaluate the relevance, reliability, coverage, and usefulness of the collected e
 6. If sources conflict or important claims cannot be verified, identify the issue and recommend targeted research.
 7. Do not invent evidence, assume that a claim is true without support, or ask for unnecessary additional research.
 8. Do not write the blog, generate its outline, or conduct external searches yourself.
-9. If the evidence is sufficient, approve it for submission through the `submit_evidence_node` step.
+9. If the evidence is sufficient, approve it for submission through the `submit_evidence` step.
 10. If research limits have been reached and evidence remains insufficient, report the remaining limitations clearly so the graph can handle the situation without looping indefinitely.
 
 # Output Format

@@ -50,6 +50,7 @@ def planner(state: State) -> dict:
         try:
             plan = Plan.model_validate_json(msg.message.content)
             logger.info("Planner planned the flow")
+            logger.info(f"Tasks are: {plan.tasks}")
             return {"plan": plan}
 
         except ValidationError as exc:

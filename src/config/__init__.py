@@ -8,7 +8,10 @@ from .config import (
     TIMEOUT,
     MAX_FETCHES,
     MAX_RESEARCH_STEPS,
-    ASSETS_DIR
+    ASSETS_DIR,
+    CRITIQUE_PASS_SCORE,
+    MAX_REVISIONS,
+    MAX_WEB_SEARCH_COUNT
 )
 
 from .logging_config import setup_logging

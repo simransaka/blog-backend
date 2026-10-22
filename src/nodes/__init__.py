@@ -4,9 +4,10 @@ from .fanout import fanout
 from .reducer import reducer, OUTPUT_DIR
 from .router import router_node
 from .research import research_node
-from .orchestrator_node import orchestrator_node
-from .evaluator_node import evaluator_node
-from .submit_evidence_node import submit_evidence_node
+from .orchestrator import orchestrator
+from .evaluator import evaluator
+from .submit_evidence import submit_evidence
+from .critique import critique
 
 __all__ = [
     "planner",
@@ -17,7 +18,7 @@ __all__ = [
     "router_node",
     "route_next",
     "research_node",
-    "orchestrator_node",
-    "evaluator_node",
-    "submit_evidence_node",
+    "orchestrator",
+    "evaluator",
+    "submit_evidence",
 ]

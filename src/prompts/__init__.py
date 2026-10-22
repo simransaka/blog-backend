@@ -25,3 +25,7 @@ ORCHESTRATOR_PROMPT = (PROMPTS_DIR / "orchestrator_prompt.md").read_text(
 EVALUATOR_PROMPT = (PROMPTS_DIR / "evaluator_prompt.md").read_text(
     encoding="utf-8"
 )
+
+CRITIQUE_PROMPT = (PROMPTS_DIR / "critique_prompt.md").read_text(
+    encoding="utf-8"
+)

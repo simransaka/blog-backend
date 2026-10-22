@@ -19,7 +19,11 @@ def main() -> None:
 
     out = blog.invoke({
         "topic": args.topic,
-        "sections": []
+        "sections": [],
+        "web_search_count": 0,
+        "research_steps": 0,
+        "fetch_count": 0,
+        "evidence": [],
     })
 
     print(out.get("final", ""))
