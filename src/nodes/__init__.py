@@ -6,8 +6,8 @@ from .router import router_node
 from .research import research_node
 from .orchestrator import orchestrator
 from .evaluator import evaluator
-from .submit_evidence import submit_evidence
 from .critique import critique
+from .submit_evidence import submit_evidence
 
 __all__ = [
     "planner",

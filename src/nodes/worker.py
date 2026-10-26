@@ -3,10 +3,16 @@ from __future__ import annotations
 import ollama
 import logging
 
-from src.models import EvidenceItem
+from src.models import (
+    EvidenceItem,
+    FetchedPageContent,
+)
 from src.config import MODEL
 from src.prompts import WORKER_PROMPT
-from src.config import WORKER_MAX_EVIDENCE
+from src.config import (
+    MAX_FETCHED_PAGES_COUNT,
+    WORKER_MAX_EVIDENCE
+)
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +23,18 @@ def worker(payload: dict) -> dict:
     task = payload["task"]
     topic = payload["topic"]
     plan = payload["plan"]
-    evidence = [EvidenceItem(**e) for e in payload.get("evidence", [])]
+
+    fetched_page_content = [
+        f if isinstance(f, FetchedPageContent)
+        else FetchedPageContent.model_validate(f)
+        for f in payload.get("fetched_page_content", [])
+    ]
+    evidence = [
+        e if isinstance(e, EvidenceItem)
+        else EvidenceItem.model_validate(e)
+        for e in payload.get("evidence", [])
+    ]
+
     mode = payload.get("mode", "closed_book")
     
     bullets_text = "\n- " + "\n- ".join(task.bullets)
@@ -28,6 +45,13 @@ def worker(payload: dict) -> dict:
             f"- {e.title} | {e.url} | {e.published_at or 'date:unknown'} | {e.snippet or 'No snippet available'}".strip()
             for e in evidence[:WORKER_MAX_EVIDENCE]
         )
+
+    fetched_page_text = ""
+    if fetched_page_content:
+            fetched_page_text = "\n".join(
+                f"- {f.url} | {f.content}".strip()
+                for f in fetched_page_content[:MAX_FETCHED_PAGES_COUNT]
+            )
         
     logger.info(f"Task id: {task.id} being processed")
 
@@ -52,7 +76,8 @@ def worker(payload: dict) -> dict:
                 f"requires_citations: {task.requires_citations}\n"
                 f"requires_code: {task.requires_code}\n"
                 f"Bullets:{bullets_text}\n\n"
-                f"Evidence (ONLY use these URLs when citing):\n{evidence_text}\n",
+                f"Evidence (DO NOT use the urls as the url's content is provided to you):\n{evidence_text}\n"
+                f"Content for all the urls:\n{fetched_page_text}\n",
             },
         ],
     )

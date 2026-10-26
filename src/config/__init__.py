@@ -11,7 +11,8 @@ from .config import (
     ASSETS_DIR,
     CRITIQUE_PASS_SCORE,
     MAX_REVISIONS,
-    MAX_WEB_SEARCH_COUNT
+    MAX_WEB_SEARCH_COUNT,
+    MAX_FETCHED_PAGES_COUNT
 )
 
 from .logging_config import setup_logging

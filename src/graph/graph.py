@@ -65,7 +65,6 @@ graph.add_node("orchestrator", orchestrator)
 graph.add_node("evaluator", evaluator)
 graph.add_node("submit_evidence", submit_evidence)
 graph.add_node("critique", critique)
-graph.add_node("fanout", fanout)
 
 
 

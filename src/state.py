@@ -5,7 +5,8 @@ from langgraph.graph.message import add_messages
 from src.models.plan import Plan
 from src.models import (
     EvidenceItem,
-    CritiqueResponse
+    CritiqueResponse,
+    FetchedPageContent
 )
 
 
@@ -31,6 +32,9 @@ class State(TypedDict):
     research_steps: int
     fetch_count: int
     web_search_count: int
+
+    # fetch page contents
+    fetched_page_content: list[FetchedPageContent]
 
     # submit_evidence result
     approved_evidence: list[dict]

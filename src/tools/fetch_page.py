@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import logging
 from langchain_core.tools import tool
 
+from src.models import FetchedPageContent
 from src.config import (
     MAX_CHARACTERS,
     TIMEOUT
@@ -16,8 +17,10 @@ logger = logging.getLogger(__name__)
 def fetch_page(
         url: str,
         max_characters: int = MAX_CHARACTERS
-) -> str:
+) -> list[dict]:
     """Fetch a webpage and return its cleaned content"""
+
+    logger.info(f"Started to fetch page content from url: {url}")
 
     if max_characters <= 0:
         logger.error("max_characters must be positive and more than zero")
@@ -37,6 +40,8 @@ def fetch_page(
         )
         response.raise_for_status()
 
+        logger.info(f"Status of the fetching: {response.raise_for_status()}")
+
     except requests.exceptions.RequestException:
         logger.exception("Error occurred while fetching webpage: %s", url)
         raise
@@ -50,4 +55,9 @@ def fetch_page(
 
     text = " ".join(text.split())
 
-    return text[:MAX_CHARACTERS]
+    logger.info(f"content of page:\n{text}")
+
+    return {
+        "url": url,
+        "content": text 
+    }

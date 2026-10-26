@@ -25,7 +25,7 @@ def submit_evidence(state: State) -> dict:
     )
 
     for item in items:
-        url = item.get("url")
+        url = item.url
 
         if not isinstance(url, str) or not url.strip():
             continue

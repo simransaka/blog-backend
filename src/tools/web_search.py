@@ -79,6 +79,16 @@ def web_search(query: str, max_results: int = 5) -> List[dict]:
             )
             continue
 
+        logger.info(
+            "Tavily search result: title=%s, url=%s, snippet=%s, "
+            "published_at=%s, source=%s",
+            r.get("title") or "",
+            r.get("url") or "",
+            r.get("content") or r.get("snippet") or "",
+            r.get("published_date") or r.get("published_at"),
+            r.get("source"),
+        )
+
         normalized.append(
             {
                 "title": r.get("title") or "",

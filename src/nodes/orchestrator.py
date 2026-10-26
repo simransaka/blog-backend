@@ -15,6 +15,11 @@ from src.tools import (
     web_search
 )
 from src.prompts import ORCHESTRATOR_PROMPT
+from src.services import (
+    search_result_validator,
+    evidence_fact_checker
+)
+from src.models import FetchedPageContent, EvidenceItem
 
 
 logger = logging.getLogger(__name__)
@@ -83,6 +88,9 @@ def orchestrator(state: State):
     web_search_count = state.get("web_search_count", 0)
     fetch_count = state.get("fetch_count", 0)
     collected_evidence = list(state.get("evidence", []))
+    collected_fetched_content = list(
+    state.get("fetched_page_content", [])
+    )
 
     while research_steps < MAX_RESEARCH_STEPS:
         response = ollama.chat(
@@ -132,11 +140,61 @@ def orchestrator(state: State):
 
                     result = TOOL_MAP[name].invoke(args)
 
-                    if isinstance(result, list):
-                        collected_evidence.extend(result)
-                    elif isinstance(result, dict):
-                        collected_evidence.append(result)
+                    if name == "web_search":
+                        valid_results = []
 
+                        for item in result:
+                            try:
+                                evidence = (
+                                    item
+                                    if isinstance(item, EvidenceItem)
+                                    else EvidenceItem.model_validate(item)
+                                )
+
+                                validated = search_result_validator(evidence)
+
+                                if validated is not None:
+                                    valid_results.append(validated)
+
+                            except Exception:
+                                logger.exception("Failed to validate search result")
+
+                        collected_evidence.extend(valid_results)
+
+                        # Ollama receives only the accepted results.
+                        result = [
+                            item.model_dump()
+                            for item in valid_results
+                        ]
+                    elif name == "fetch_page":
+                        valid_content = []
+
+                        try:
+                            content = (
+                                result
+                                if isinstance(result, FetchedPageContent)
+                                else FetchedPageContent.model_validate(result)
+                            )
+
+                            checked_content = evidence_fact_checker(
+                                content=content,
+                                query=args.get("url", ""),
+                                topic=state["topic"],
+                            )
+
+                            if checked_content is not None:
+                                valid_content.append(checked_content)
+
+                        except Exception:
+                            logger.exception("Failed to validate or fact-check fetched page")
+
+                        collected_fetched_content.extend(valid_content)
+
+                        # Ollama receives only the accepted content.
+                        result = [
+                            item.model_dump()
+                            for item in valid_content
+                        ]
                 except Exception as exc:
                     logger.exception("Tool execution failed: %s", name)
                     result = f"Tool error: {exc}"
@@ -149,11 +207,12 @@ def orchestrator(state: State):
                     else json.dumps(result, default=str)
                 ),
             })
-    logger.info("Page content fetched")
+
             
     return {
         "web_search_count": web_search_count,
         "evidence": collected_evidence,
         "research_steps": research_steps,
         "fetch_count": fetch_count,
+        "fetched_page_content": collected_fetched_content,
     }

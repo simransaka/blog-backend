@@ -29,3 +29,7 @@ EVALUATOR_PROMPT = (PROMPTS_DIR / "evaluator_prompt.md").read_text(
 CRITIQUE_PROMPT = (PROMPTS_DIR / "critique_prompt.md").read_text(
     encoding="utf-8"
 )
+
+EVIDENCE_FACT_CHECKER_PROMPT = (PROMPTS_DIR / "evidence_fact_checker_prompt.md").read_text(
+    encoding="utf-8"
+)
