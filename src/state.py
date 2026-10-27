@@ -42,3 +42,6 @@ class State(TypedDict):
     # critique
     revision_count: int
     critique: CritiqueResponse | None
+
+    # human in the loop
+    human_review: str

@@ -8,6 +8,7 @@ from .orchestrator import orchestrator
 from .evaluator import evaluator
 from .critique import critique
 from .submit_evidence import submit_evidence
+from .human_review import human_review
 
 __all__ = [
     "planner",
@@ -21,4 +22,5 @@ __all__ = [
     "orchestrator",
     "evaluator",
     "submit_evidence",
+    "human_review"
 ]
