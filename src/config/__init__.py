@@ -12,7 +12,10 @@ from .config import (
     CRITIQUE_PASS_SCORE,
     MAX_REVISIONS,
     MAX_WEB_SEARCH_COUNT,
-    MAX_FETCHED_PAGES_COUNT
+    MAX_FETCHED_PAGES_COUNT,
+    MODEL,
+    EMBEDDING_MODEL,
+    CHROMA_DIR
 )
 
 from .logging_config import setup_logging

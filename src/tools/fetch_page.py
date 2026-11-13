@@ -3,7 +3,6 @@ from bs4 import BeautifulSoup
 import logging
 from langchain_core.tools import tool
 
-from src.models import FetchedPageContent
 from src.config import (
     MAX_CHARACTERS,
     TIMEOUT
@@ -17,7 +16,7 @@ logger = logging.getLogger(__name__)
 def fetch_page(
         url: str,
         max_characters: int = MAX_CHARACTERS
-) -> list[dict]:
+) -> dict[str, str]:
     """Fetch a webpage and return its cleaned content"""
 
     logger.info(f"Started to fetch page content from url: {url}")
@@ -53,7 +52,7 @@ def fetch_page(
 
     text = soup.get_text(separator=" ", strip=True)
 
-    text = " ".join(text.split())
+    text = " ".join(text.split())[:max_characters]
 
     logger.info(f"content of page:\n{text}")
 

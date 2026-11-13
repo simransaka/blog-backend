@@ -1,78 +1,54 @@
-# Blog Backend
+# README Updates — Markdown Storage and Embeddings
 
-An AI-powered blog generation application built with **Python, LangGraph, Ollama, and Tavily**. Given a topic, the system researches relevant information when needed, creates a structured blog plan, pauses for human review and approval, generates sections using parallel workers, validates citations, critiques the draft, and saves the final result as a Markdown (`.md`) file.
+## 1. Update the Project Description
 
-## Key Features
+Add this sentence to the end of the opening description:
 
-- **Conditional research:** Determines whether a topic requires web research or can be handled using existing model knowledge.
-- **Agentic research loop:** Uses web search, page fetching, evidence submission, and evaluation to gather relevant information.
-- **Structured planning:** Creates a structured blog plan with sections, goals, bullet points, word counts, tags, and constraints.
-- **Human-in-the-Loop (HITL):** Pauses after planning to let a human approve, reject, or edit the plan before content generation begins.
-- **Plan editing:** Allows the human reviewer to modify the generated plan before dispatching tasks to workers.
-- **Parallel section generation:** Uses LangGraph fan-out to generate multiple blog sections concurrently.
-- **Citation fact-checking:** Validates cited URLs and checks whether available evidence supports the associated claims.
-- **Iterative critique and revision:** Identifies specific sections that need corrections and sends their task IDs back to the workers.
-- **Conditional workflow:** Stops revision when the critique score meets the configured threshold or the maximum number of attempts is reached.
-- **Markdown output:** Combines the approved sections into a final blog document.
+The application also assigns a unique ID to each generated Markdown file, stores its metadata and file path in MySQL, and generates document embeddings using Ollama and ChromaDB to support future file-specific retrieval.
 
-## Architecture Overview
+---
 
-The project is organized into four phases that progressively improve research quality, content reliability, and workflow control.
+## 2. Add These Key Features
 
-### Phase 1: Research Agent with Tools
+Add the following bullets under **Key Features**:
 
-Replaces one-shot research with an iterative, tool-using research agent built with LangGraph and Ollama.
+- **Markdown file identification:** Assigns a unique ID to every generated Markdown file.
+- **MySQL metadata storage:** Stores each file's ID, title, file path, version, embedding status, and timestamps in a MySQL database.
+- **Persistent document storage:** Saves generated Markdown files in the project's `outputs/` directory.
+- **Markdown chunking:** Splits generated Markdown documents into smaller, overlapping chunks while preserving heading structure.
+- **Embedding generation:** Uses Ollama's `nomic-embed-text` model to generate vector embeddings for Markdown chunks.
+- **Vector storage:** Stores embeddings and associated metadata in a persistent ChromaDB collection for future retrieval.
 
-- **Conditional routing:** The router determines whether research is needed and selects the workflow mode (`closed_book`, `hybrid`, or `open_book`).
-- **ReAct-style research:** The agent alternates between LLM reasoning and tool execution, refining its search strategy based on retrieved information.
-- **Web search:** Uses Tavily to discover relevant sources and gather initial evidence.
-- **Page fetching:** Retrieves and cleans web page content so the agent can inspect information beyond search-result snippets.
-- **Evidence submission:** Validates the collected evidence against the expected schema before passing it to the planning workflow.
-- **Resource limits:** Enforces configurable limits on research steps and page fetches to prevent unbounded research loops.
+---
 
-The agent decides what to search for next rather than relying on a fixed list of queries generated upfront.
+## 3. Add a New Architecture Phase
 
-### Phase 2: Critic and Reflection Loop
+Add this as **Phase 5**, after Phase 4.
 
-Improves generated content through structured evaluation and targeted revision.
+### Phase 5: Markdown Persistence and Embeddings Generation
 
-- **Parallel generation:** Uses LangGraph fan-out to distribute planned tasks among workers that generate individual blog sections concurrently.
-- **Draft assembly:** Combines generated sections into a complete Markdown draft.
-- **Structured critique:** Evaluates the draft against the original plan and available evidence, producing a score, sections requiring revision, and unsupported claims.
-- **Targeted revision:** Uses LangGraph `Send` to rerun only the workers responsible for flagged sections, passing the critic's feedback into their prompts.
-- **Section replacement:** Ensures revised sections replace their previous versions instead of creating duplicates.
-- **Bounded iterations:** Uses a configurable passing score and maximum revision count to guarantee that the reflection loop terminates.
-- **Final output:** Writes the final approved draft to disk only after the revision process finishes.
+Introduces persistent storage for generated blogs and prepares their content for future semantic retrieval.
 
-This phase helps improve completeness, relevance, consistency, and adherence to the original plan without regenerating every section unnecessarily.
+- **Unique file IDs:** Generates a unique identifier for each completed Markdown file.
+- **Markdown file storage:** Saves the final blog document in the project's `outputs/` directory.
+- **MySQL integration:** Uses SQLAlchemy and PyMySQL to connect to MySQL and manage Markdown file metadata.
+- **Metadata registration:** Stores the file ID, title, file path, version, embedding status, and creation and update timestamps in the `markdown_files` table.
+- **Document loading:** Reads the saved Markdown file before starting the embedding process.
+- **Recursive text splitting:** Divides the Markdown content into smaller chunks using heading-aware separators.
+- **Overlapping chunks:** Uses a chunk size of approximately 800 characters and an overlap of 120 characters to preserve context between consecutive chunks.
+- **Embedding generation:** Uses Ollama's `nomic-embed-text` model to convert each text chunk into a numerical vector representation.
+- **Vector database:** Stores the generated embeddings in a persistent ChromaDB collection named `markdown_documents`.
+- **Chunk metadata:** Associates each stored chunk with its `file_id`, document title, chunk index, and version.
+- **Persistent storage:** Keeps ChromaDB data in the project's `assets/chroma_db/` directory so the vector database can be reused across application runs.
+- **Embedding reuse:** Checks the file ID and version to avoid unnecessarily generating embeddings again for an already indexed version of a document.
 
-### Phase 3: Citation Fact-Checker
+This phase separates document metadata from vector storage: MySQL manages the Markdown file records, while ChromaDB stores the vector representations of the document chunks.
 
-Validates citations and checks whether generated claims are supported by collected evidence before critique.
+---
 
-- **URL validation:** Checks that each cited source URL exists in the collected evidence and removes hallucinated citations.
-- **Claim verification:** Uses an LLM to determine whether the available snippet or fetched page content supports the associated claim.
-- **Unsupported content handling:** Rewrites unsupported claims to `Not found in provided sources.` or removes them according to the validation rules.
-- **Validation reporting:** Records the number of citations checked, removed, and rewritten, and logs the results.
-- **Critic integration:** Passes the fact-checked draft to the critic for further evaluation and possible revision.
+## 4. Update the End-to-End Workflow
 
-This phase reduces fabricated citations and unsupported factual claims. Its effectiveness depends on the quality and relevance of the collected evidence.
-
-### Phase 4: Human-in-the-Loop and Checkpointing
-
-Introduces human oversight and resumable execution using LangGraph interrupts and checkpointing.
-
-- **Plan review:** After the planner generates the blog outline, `interrupt()` pauses execution and presents the plan in the command-line interface.
-- **Approval:** Accepts the plan and continues to parallel section generation.
-- **Editing:** Allows the user to modify section titles and bullet points before generation.
-- **Rejection and feedback:** Sends the workflow back to the planner with the user's feedback so a revised plan can be generated.
-- **Checkpoint persistence:** Uses a checkpointer and thread IDs to save workflow state and resume interrupted runs.
-- **Resume support:** Supports resuming a saved workflow using a command such as `python -m src.app.main --resume <thread_id>`.
-- **Automatic execution:** Provides an `--auto` option to bypass manual approval for unattended runs.
-
-Human review provides control over the outline before the application spends resources generating the complete blog, while checkpointing enables interrupted workflows to continue from saved state.
-
-## End-to-End Workflow
+Replace your existing workflow with this updated version:
 
 1. The router decides whether research is required.
 2. The research agent gathers evidence using web search and page-fetching tools when necessary.
@@ -83,54 +59,49 @@ Human review provides control over the outline before the application spends res
 7. The critic evaluates the draft and identifies sections requiring revision.
 8. Flagged sections are regenerated and replace their previous versions.
 9. The loop terminates when the draft passes the configured threshold or reaches the revision limit.
-10. The final draft is assembled and saved as a Markdown file.
+10. The final draft is assembled and saved as a Markdown file in the `outputs/` directory.
+11. A unique ID is assigned to the generated Markdown file.
+12. The file's metadata and path are registered in the MySQL `markdown_files` table.
+13. The saved Markdown document is loaded and split into smaller, overlapping chunks.
+14. Ollama's `nomic-embed-text` model generates embeddings for the chunks.
+15. The embeddings and their associated metadata are stored in the persistent ChromaDB collection `markdown_documents`.
 
-## Prerequisites
+---
 
-Install the following before running the project:
+## 5. Add Database and Embeddings Setup
 
-- Python compatible with the project's dependencies
-- [Ollama](https://ollama.com/download)
-- A [Tavily API key](https://app.tavily.com/) for web research
+Add these steps after your existing **Configure Environment Variables** section.
 
-## 1. Clone the Repository
+### Configure MySQL
+
+Ensure that MySQL Server is installed and running. Create a database for the application.
+
+For example, you can create a database named `blog_backend`:
+
+```sql
+CREATE DATABASE blog_backend;
+```
+
+Configure the database connection details in your `.env` file:
+
+```dotenv
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=blog_backend
+DB_USER=your_mysql_username
+DB_PASSWORD=your_mysql_password
+```
+
+The application uses SQLAlchemy and PyMySQL to connect to MySQL. The database table is initialized through the application's database setup.
+
+### Download the Embedding Model
+
+The project uses Ollama's `nomic-embed-text` model to generate embeddings.
+
+Run:
 
 ```bash
-git clone <your-repository-url>
-cd blog-backend
-```
-
-Replace `<your-repository-url>` with the repository's Git URL.
-
-## 2. Create and Activate a Virtual Environment
-
-**Windows PowerShell**
-
-```powershell
-python -m venv myenv
-.\myenv\Scripts\Activate.ps1
-```
-
-If PowerShell blocks script execution, use Command Prompt instead:
-
-```cmd
-myenv\Scripts\activate.bat
-```
-
-## 3. Install Dependencies
-
-From the project root, run:
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-## 4. Download the Ollama Model
-
-Ensure Ollama is installed and running, then download the model used by the application:
-
-```bash
-ollama pull qwen2.5:7b
+ollama pull nomic-embed-text
 ```
 
 Verify that the model is available:
@@ -139,128 +110,91 @@ Verify that the model is available:
 ollama list
 ```
 
-Make sure the model name matches the configuration in your project.
+Make sure Ollama is running before starting the application.
 
-## 5. Configure Environment Variables
+---
 
-Create your local `.env` file using the example file.
+## 6. Add a Storage and Embeddings Section
 
-**Windows PowerShell**
+Add this section after **Find the Generated Blog**.
 
-```powershell
-Copy-Item .env.example .env
-```
+### Generated Markdown Files and Embeddings
 
-Open `.env` and configure your Tavily API key:
+After the blog generation and revision workflow completes, the application performs the following storage operations:
 
-```dotenv
-TAVILY_API_KEY=your_actual_tavily_api_key
-```
+**Markdown file storage**
 
-Keep `.env` private. Never commit your actual API key to Git. Ensure `.env` is included in `.gitignore` and that `.env.example` contains only placeholders.
+- Saves the final Markdown document in `outputs/`.
+- Assigns a unique ID to the generated file.
+- Registers the file's metadata and path in MySQL.
 
-## 6. Run the Application
+**MySQL metadata**
 
-Run the application from the project root using Python module execution:
+The `markdown_files` table maintains the following information:
 
-```bash
-python -m src.app.main "New discoveries in science"
-```
+| Column | Purpose |
+|---|---|
+| `id` | Unique identifier for the Markdown file |
+| `title` | Blog title |
+| `file_path` | Path to the saved Markdown file |
+| `version` | Document version |
+| `embedding_status` | Tracks the embedding-generation status |
+| `created_at` | Record creation timestamp |
+| `updated_at` | Last update timestamp |
 
-You can replace the topic with any subject you want to explore.
+**Embedding generation**
 
-For example:
+- Loads the saved Markdown file.
+- Splits the content into smaller chunks using recursive text splitting.
+- Preserves heading structure where possible.
+- Generates embeddings using `nomic-embed-text`.
+- Stores the vectors in ChromaDB along with their document metadata.
 
-```bash
-python -m src.app.main "How Retrieval-Augmented Generation works"
-```
+**ChromaDB configuration**
 
-```bash
-python -m src.app.main "Recent developments in artificial intelligence"
-```
+| Setting | Value |
+|---|---|
+| Storage directory | `assets/chroma_db/` |
+| Collection name | `markdown_documents` |
+| Embedding model | `nomic-embed-text` |
+| Chunk size | 800 characters |
+| Chunk overlap | 120 characters |
+| Metadata | `file_id`, `title`, `chunk_index`, `version` |
 
-### Human Review During Execution
+MySQL stores the document records and their file paths, while ChromaDB stores the vector embeddings of the document chunks. This provides the foundation for implementing document-specific semantic search and retrieval in a future chatbot.
 
-After the planner creates the blog plan, the application pauses and displays the plan for review.
+---
 
-Choose one of the available options:
+## 7. Update the Technology Stack
 
-```text
----HUMAN REVIEW REQUIRED---
-
-Choose approve, reject, or edit - approve
-```
-
-- Enter `approve` to accept the plan and start section generation.
-- Enter `reject` to return to the planner and generate a new plan.
-- Enter `edit` to modify the plan before generation.
-
-Follow the prompts displayed by the application for the selected action.
-
-**Important:** Use `python -m src.app.main` rather than `python src/app/main.py`, because the project's package imports rely on module execution.
-
-## 7. Find the Generated Blog
-
-After the workflow completes, the final blog is saved as a Markdown (`.md`) file in the configured output directory.
-
-Open the generated file to read the blog, including its structured sections and validated citations.
-
-## Technology Stack
+Replace your existing technology stack table with this updated version:
 
 | Technology | Purpose |
 |---|---|
 | Python | Core application logic |
 | LangGraph | Workflow orchestration, conditional routing, parallel execution, interrupts, checkpointing, and revision loops |
-| Ollama | Runs the configured local language model |
-| Qwen 2.5 7B | Blog planning, generation, and evaluation |
+| Ollama | Runs local language and embedding models |
+| Qwen2.5 3B | Configured language model for blog planning, generation, and evaluation |
+| Nomic Embed Text Latest | Generates vector embeddings for Markdown chunks |
 | Tavily | Web search for research |
 | Requests and BeautifulSoup | Fetching and extracting web page content |
 | Pydantic | Structured model outputs and validation |
+| SQLAlchemy | Database ORM and MySQL integration |
+| PyMySQL | MySQL database driver |
+| MySQL | Stores Markdown file metadata and file paths |
+| ChromaDB | Persistent vector database for document embeddings |
 | Markdown | Final blog document format |
 
-## Troubleshooting
+---
 
-**Ollama connection error**
+## 8. Update the Project Goal
 
-- Ensure Ollama is installed and running.
-- Verify that `qwen2.5:7b` is available using `ollama list`.
-- Check the Ollama connection settings in the project configuration.
-
-**Tavily authentication error**
-
-- Verify that `TAVILY_API_KEY` is configured correctly in `.env`.
-- Ensure the key is valid and that the environment variables are loaded.
-
-**Module import error**
-
-- Run the command from the repository root.
-- Use `python -m src.app.main`.
-
-**Dependency errors**
-
-- Activate the intended virtual environment.
-- Install dependencies using `python -m pip install -r requirements.txt`.
-
-**Human review does not resume**
-
-- Ensure the graph is compiled with a checkpointer.
-- Use the same `thread_id` when resuming the interrupted workflow.
-- Resume using `Command(resume=decision)` with a value matching what the human-review node expects.
-- Confirm that the human-review node calls LangGraph's `interrupt()` function.
-
-**Research or citation validation issues**
-
-- Verify your Tavily API key and internet connectivity.
-- Check the research limits and citation validation logic.
-- Remember that a URL being accessible does not guarantee that it supports the associated claim.
-
-**Excessive revision loops**
-
-- Review the configured critique score threshold and maximum revision attempts.
-- Ensure the critic identifies concrete defects and returns only the task IDs that genuinely require correction.
+Replace your existing Project Goal section with:
 
 ## Project Goal
 
-This project demonstrates an agentic content-generation pipeline in which research, planning, human approval, parallel generation, citation verification, critique, and targeted revision work together to produce a structured, evidence-aware blog.
+This project demonstrates an agentic content-generation pipeline in which research, planning, human approval, parallel generation, citation verification, critique, and targeted revision work together to produce structured, evidence-aware blogs.
 
-It serves as a proof of concept for building more reliable multi-agent workflows with LangGraph, local language models, and human oversight.
+It also implements persistent document storage and embedding generation. Each generated Markdown file receives a unique identifier, its metadata is stored in MySQL, and its content is converted into vector embeddings using Ollama and stored in ChromaDB.
+
+The project serves as a proof of concept for building more reliable multi-agent workflows with LangGraph, local language models, human oversight, relational databases, and vector databases. The stored document embeddings provide the foundation for future semantic retrieval and document-specific chatbot functionality.

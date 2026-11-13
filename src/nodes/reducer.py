@@ -74,5 +74,10 @@ def reducer(state: State) -> dict:
             temporary_path.unlink(missing_ok=True)
 
     logger.info("Created the markdown file")
-
-    return {"final": final_md}
+    logger.info("[STAGE] Blog generation completed")
+    
+    return {
+        "final": final_md,
+        "document_title": title,
+        "document_path": str(output_path)
+    }

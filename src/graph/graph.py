@@ -4,12 +4,13 @@ from langgraph.checkpoint.memory import InMemorySaver
 from src.state import State
 from src.config import ASSETS_DIR
 from src.models import Plan
-from src.services import edit_plan
 
 from src.config import (
     CRITIQUE_PASS_SCORE,
     MAX_REVISIONS,
-    MAX_WEB_SEARCH_COUNT
+    MAX_WEB_SEARCH_COUNT,
+    MAX_RESEARCH_STEPS,
+    MAX_FETCHES,
 )
 
 from src.nodes import (
@@ -18,7 +19,6 @@ from src.nodes import (
     worker,
     reducer,
     fanout,
-    research_node,
     evaluator,
     orchestrator,
     submit_evidence,
@@ -26,39 +26,88 @@ from src.nodes import (
     human_review
 )
 
+
 graph = StateGraph(State)
+
 checkpointer = InMemorySaver()
 
-# edit plan node
+
+# --------------------------------------------------
+# EDIT PLAN NODE
+# --------------------------------------------------
+
 def edit_plan_node(state: State) -> dict:
-    plan = state["plan"]
+    edited_plan = state.get("edited_plan")
 
-    if isinstance(plan, dict):
-        plan = Plan.model_validate(plan)
+    if not edited_plan:
+        raise ValueError("Edited plan was not provided.")
 
-    edited_plan = edit_plan(plan)
+    if isinstance(edited_plan, dict):
+        edited_plan = Plan.model_validate(edited_plan)
 
-    return {"plan": edited_plan}
+    return {
+        "plan": edited_plan
+    }
 
 
-# router decision
+# --------------------------------------------------
+# ROUTER
+# --------------------------------------------------
+
 def router_next(state: State) -> str:
-    return "evaluator" if state["needs_research"] else "planner"
 
-# evaluator decision
+    if state["needs_research"]:
+        return "evaluator"
+
+    return "planner"
+
+
+# --------------------------------------------------
+# EVALUATOR
+# --------------------------------------------------
+
 def evaluator_next(state: State) -> str:
     web_search_count = state.get("web_search_count", 0)
-
     if (
-        web_search_count >= MAX_WEB_SEARCH_COUNT
-        or state["evidence_sufficient"]
+        state.get("evidence_sufficient", False)
+        or state.get("research_stalled", False)
+        or web_search_count >= MAX_WEB_SEARCH_COUNT
+        or state.get("research_steps", 0) >= MAX_RESEARCH_STEPS
+        or state.get("fetch_count", 0) >= MAX_FETCHES
     ):
         return "submit_evidence"
-    
+
     return "orchestrator"
 
-# critique decision
+
+# --------------------------------------------------
+# HUMAN REVIEW
+# --------------------------------------------------
+
+def human_review_next(state: State):
+
+    review = state["human_review"]
+
+    if review in ("reject", "rejected"):
+        return "planner"
+
+    if review == "edit":
+        return "edit_plan"
+
+    if review in ("approve", "approved"):
+        return fanout(state)
+
+    raise ValueError(
+        f"Invalid human review decision: {review}"
+    )
+
+
+# --------------------------------------------------
+# CRITIQUE
+# --------------------------------------------------
+
 def critique_next(state: State):
+
     critique_result = state["critique"]
 
     if (
@@ -70,66 +119,116 @@ def critique_next(state: State):
 
     return fanout(state)
 
-# human review decision
 
-def human_review_next(state: State):
-    review = state["human_review"]
+# --------------------------------------------------
+# NODES
+# --------------------------------------------------
 
-    if review == "rejected":
-        return "planner"
-
-    if review == "edit":
-        return "edit_plan"
-
-    return fanout(state)
-
-
-# graph - nodes
-graph.add_node("planner", planner)
-graph.add_node("worker", worker)
-graph.add_node("reducer", reducer)
-# graph.add_node("research", research_node)
 graph.add_node("router", router_node)
+
 graph.add_node("orchestrator", orchestrator)
 graph.add_node("evaluator", evaluator)
 graph.add_node("submit_evidence", submit_evidence)
-graph.add_node("critique", critique)
+
+graph.add_node("planner", planner)
 graph.add_node("human_review", human_review)
 graph.add_node("edit_plan", edit_plan_node)
 
+graph.add_node("worker", worker)
+graph.add_node("critique", critique)
+graph.add_node("reducer", reducer)
 
-# graph - edges
+
+# --------------------------------------------------
+# EDGES
+# --------------------------------------------------
+
 graph.add_edge(START, "router")
+
+
+# Router -> Research or Planner
 graph.add_conditional_edges(
-    "router", router_next, {"evaluator": "evaluator", "planner": "planner"}
+    "router",
+    router_next,
+    {
+        "evaluator": "evaluator",
+        "planner": "planner"
+    }
 )
+
+
+# Evaluator -> Orchestrator or Submit Evidence
 graph.add_conditional_edges(
-    "evaluator", evaluator_next, {"submit_evidence": "submit_evidence", "orchestrator": "orchestrator"}
+    "evaluator",
+    evaluator_next,
+    {
+        "orchestrator": "orchestrator",
+        "submit_evidence": "submit_evidence"
+    }
 )
+
+
+# Research loop
 graph.add_edge("orchestrator", "evaluator")
+
+
+# Research completed -> Planner
 graph.add_edge("submit_evidence", "planner")
+
+
+# Planner -> Human Review
 graph.add_edge("planner", "human_review")
+
+
+# Human Review -> Planner / Edit Plan / Workers
 graph.add_conditional_edges(
     "human_review",
     human_review_next,
     {
         "planner": "planner",
-        "edit_plan": "edit_plan",
-    },
+        "edit_plan": "edit_plan"
+    }
 )
-graph.add_conditional_edges("edit_plan", fanout, ["worker"])
+
+
+# Edited Plan -> Workers
+graph.add_conditional_edges(
+    "edit_plan",
+    fanout,
+    ["worker"]
+)
+
+
+# Workers -> Critique
 graph.add_edge("worker", "critique")
+
+
+# Critique -> Workers or Reducer
 graph.add_conditional_edges(
     "critique",
     critique_next,
     {
-        "reducer": "reducer",
-    },
+        "reducer": "reducer"
+    }
 )
+
+
+# Reducer -> END
 graph.add_edge("reducer", END)
 
 
-blog = graph.compile(checkpointer=checkpointer)
+# --------------------------------------------------
+# COMPILE
+# --------------------------------------------------
+
+blog = graph.compile(
+    checkpointer=checkpointer
+)
+
+
+# --------------------------------------------------
+# SAVE GRAPH IMAGE
+# --------------------------------------------------
 
 png_data = blog.get_graph().draw_mermaid_png()
 

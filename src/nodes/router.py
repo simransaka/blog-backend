@@ -27,7 +27,8 @@ def router_node(state: State) -> dict:
 
     logger.info("Router made a decision")
     print("Router needs research?: ", decision.needs_research)
-
+    logger.info("[STAGE] Router completed")
+    
     return {
         "needs_research": decision.needs_research,
         "mode": decision.mode,

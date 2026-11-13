@@ -23,4 +23,9 @@ class Plan(BaseModel):
             Choose the most suitable format for the given topic."""
         )
     constraints: List[str] = Field(default_factory=list)
-    tasks: List[Task]
+    tasks: List[Task] = Field(
+        ...,
+        min_length=5,
+        max_length=5,
+        description="Must contain exactly 5 tasks."
+    )

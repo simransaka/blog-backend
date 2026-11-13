@@ -3,7 +3,8 @@ from pathlib import Path
 
 load_dotenv()
 
-MODEL = "qwen2.5:7b"
+MODEL = "qwen2.5:3b"
+EMBEDDING_MODEL = "nomic-embed-text:latest"
 
 # Evidence limits
 MAX_RESULTS = 6
@@ -25,11 +26,14 @@ MAX_FETCHES = 4
 # evaluator
 MAX_WEB_SEARCH_COUNT = 2
 
-# assets directory
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 ASSETS_DIR = PROJECT_ROOT / "assets"
 ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 
+CHROMA_DIR = ASSETS_DIR / "chroma_db"
+CHROMA_DIR.mkdir(parents=True, exist_ok=True)
+
 # critique
-CRITIQUE_PASS_SCORE = 7
+CRITIQUE_PASS_SCORE = 6
 MAX_REVISIONS = 2

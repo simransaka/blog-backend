@@ -1,0 +1,3 @@
+from .document_service import register_markdown_file, update_embedding_status
+from .embedding_service import index_markdown_file
+from .background_indexing import index_document_in_background

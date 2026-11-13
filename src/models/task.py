@@ -16,12 +16,15 @@ class Task(BaseModel):
     )
     bullets: List[str] = Field(
         ...,
-        min_length=3,
-        max_length=5,
-        description="3-5 concrete, relevant, non-overlapping subpoints that collectively fulfill the section goal",
+        min_length=2,
+        max_length=4,
+        description="2-4 concrete, relevant, non-overlapping subpoints that collectively fulfill the section goal",
     )
     target_words: int = Field(
-        ..., description="Target word count for this section (120-200)"
+        ...,
+        ge=100,
+        le=120,
+        description="Target word count for this section (100-120)"
     )
     tags: List[str] = Field(default_factory=list)
     requires_research: bool = False

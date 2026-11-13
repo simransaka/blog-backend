@@ -1,13 +1,22 @@
 import argparse
 
 from langgraph.types import Command
+from dotenv import load_dotenv
 
 from src.config import setup_logging
 from src.graph.graph import blog
+from src.database import engine, Base
+from src.database import models
+
+load_dotenv()
+
+Base.metadata.create_all(bind=engine)
 
 
 def main() -> None:
     setup_logging()
+    print(Base)
+    print(engine)
     
     parser = argparse.ArgumentParser(
         description="Generate a blog post on a given topic"
@@ -52,9 +61,6 @@ def main() -> None:
             Command(resume={"review": decision}),
             config=config
         )
-
-    print("\n--- GENERATED BLOG ---")
-    print(out.get("final", ""))
 
 if __name__ == "__main__":
     main()

@@ -30,6 +30,7 @@ class State(TypedDict):
     evidence_sufficient: bool
     evaluator_feedback: str
     research_steps: int
+    research_stalled: bool
     fetch_count: int
     web_search_count: int
 
@@ -42,6 +43,11 @@ class State(TypedDict):
     # critique
     revision_count: int
     critique: CritiqueResponse | None
+    draft: str
 
     # human in the loop
     human_review: str
+    edited_plan: Optional[Plan]
+
+    document_title: str
+    document_path: str

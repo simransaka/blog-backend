@@ -80,6 +80,9 @@ def worker(payload: dict) -> dict:
                 f"Content for all the urls:\n{fetched_page_text}\n",
             },
         ],
+        options={
+            "temperature": 0.2
+        }
     )
 
     section_md = response.message.content.strip()

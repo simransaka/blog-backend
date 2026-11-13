@@ -20,8 +20,7 @@ def critique(state: State):
 
     if not sections:
         raise ValueError("Cannot critique empty sections.")
-
-    sections = state.get("sections", [])
+    
     draft_parts = []
 
     for task_id, section in sections:
@@ -62,8 +61,10 @@ def critique(state: State):
         f"Critique score: {critique.score}\n"
         f"Sections to Revise: {critique.sections_to_revise}"
     )
+    logger.info("[STAGE] Reviewing blog quality")
 
     return {
         "critique": critique,
-        "revision_count": revision_count
+        "revision_count": revision_count,
+        "draft": draft
     }

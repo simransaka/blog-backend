@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def search_result_validator(evidence: EvidenceItem) -> EvidenceItem | None:
     """Validate one search result URL."""
-    logger.info("Validation of evidence (url) started...")
+    logger.info(f"Validation of evidence ({evidence.url}) started...")
     try:
         response = requests.get(
             evidence.url,
@@ -20,7 +20,7 @@ def search_result_validator(evidence: EvidenceItem) -> EvidenceItem | None:
         )
             
         if response.status_code == 200:
-            logger.info("Evidence (url) is valid")
+            logger.info(f"Evidence ({evidence.url}) is valid")
             return evidence
         else:
             logger.warning(
