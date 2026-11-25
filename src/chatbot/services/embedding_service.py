@@ -39,6 +39,7 @@ def index_markdown_file(
     file_path: str,
     version: int = 1
 ):
+    file_id = str(file_id)
     path = Path(file_path)
 
     if not path.exists():
@@ -60,7 +61,7 @@ def index_markdown_file(
 
     if existing_chunks:
         logger.info(
-            f"Embeddingd already exist for file {file_id} with version {version}"
+            f"Embeddings already exist for file {file_id} with version {version}"
         )
 
         return len(existing_chunks)

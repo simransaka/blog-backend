@@ -17,3 +17,8 @@ myenv/
 # output .md files
 # Generated blog posts
 /outputs/
+
+# Private credentials
+secrets/
+*.json
+.env

@@ -15,7 +15,8 @@ from .config import (
     MAX_FETCHED_PAGES_COUNT,
     MODEL,
     EMBEDDING_MODEL,
-    CHROMA_DIR
+    CHROMA_DIR,
+    CHECKPOINT_DB_PATH
 )
 
 from .logging_config import setup_logging

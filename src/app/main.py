@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from src.config import setup_logging
 from src.graph.graph import blog
 from src.database import engine, Base
-from src.database import models
+from src.database import MarkdownFile, User
 
 load_dotenv()
 

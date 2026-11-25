@@ -1,3 +1,6 @@
 from .document_service import register_markdown_file, update_embedding_status
 from .embedding_service import index_markdown_file
 from .background_indexing import index_document_in_background
+from .embedding_service import collection, generate_embeddings
+from .retrieval_service import generate_missing_embeddings, retrieve_relevant_chunks
+from .chat_service import chat_with_markdowns

@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 
 def index_document_in_background(
     title: str,
-    file_path: str
+    file_path: str,
+    user_id: int
 ):
     db = SessionLocal()
     document = None
@@ -23,12 +24,14 @@ def index_document_in_background(
         document = register_markdown_file(
             db=db,
             title=title,
-            file_path=file_path
+            file_path=file_path,
+            user_id=user_id
         )
 
         logger.info(
-            "Markdown registered in MySQL. ID: %s",
-            document.id
+            "Markdown registered in MySQL. ID: %s, USER ID: %s",
+            document.id,
+            user_id
         )
 
         # Generate and store embeddings in ChromaDB

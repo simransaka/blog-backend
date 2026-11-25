@@ -1,8 +1,11 @@
+import os
+import sqlite3
+
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 
 from src.state import State
-from src.config import ASSETS_DIR
+from src.config import ASSETS_DIR, CHECKPOINT_DB_PATH
 from src.models import Plan
 
 from src.config import (
@@ -29,7 +32,20 @@ from src.nodes import (
 
 graph = StateGraph(State)
 
-checkpointer = InMemorySaver()
+# checkpointer = InMemorySaver()
+
+
+# sqlite checkpointer
+conn = sqlite3.connect(
+    str(CHECKPOINT_DB_PATH),
+    check_same_thread=False
+)
+
+checkpointer = SqliteSaver(conn)
+
+# initialize checkpoint tables
+checkpointer.setup()
+
 
 
 # --------------------------------------------------

@@ -37,3 +37,6 @@ CHROMA_DIR.mkdir(parents=True, exist_ok=True)
 # critique
 CRITIQUE_PASS_SCORE = 6
 MAX_REVISIONS = 2
+
+# sqlite DB
+CHECKPOINT_DB_PATH = Path("checkpoints.sqlite")

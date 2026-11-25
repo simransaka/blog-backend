@@ -6,13 +6,15 @@ from src.database import MarkdownFile
 def register_markdown_file(
     db: Session,
     title: str,
-    file_path: str
+    file_path: str,
+    user_id: int
 ):
     markdown_file = MarkdownFile(
         title=title,
         file_path=str(Path(file_path).resolve()),
         version=1,
-        embedding_status="pending"
+        embedding_status="pending",
+        user_id=user_id
     )
 
     db.add(markdown_file)

@@ -1,11 +1,12 @@
-
 import json
 import uuid
 import logging
 
 from typing import Literal
+from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks
+from sqlalchemy.orm import Session
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from langgraph.types import Command
@@ -14,6 +15,17 @@ from src.graph.graph import blog
 from src.chatbot.services import (
     index_document_in_background
 )
+from src.database import MarkdownFile
+from src.auth import get_current_user
+from src.database import (
+    User,
+    BlogThread,
+    SessionLocal,
+    get_db,
+    BlogJobEvent
+)
+from src.services.blog_job import run_blog_job, resume_blog_job
+from api.schemas import BlogRequest, ReviewRequest
 
 
 router = APIRouter()
@@ -34,20 +46,6 @@ NODE_STAGES = {
     "critique": "Reviewing blog quality",
     "revision": "Improving blog",
 }
-
-
-# ==================================================
-# REQUEST SCHEMAS
-# ==================================================
-
-class BlogRequest(BaseModel):
-    topic: str
-
-
-class ReviewRequest(BaseModel):
-    thread_id: str
-    review: Literal["approve", "reject", "edit"]
-    edited_plan: dict | None = None
 
 
 # ==================================================
@@ -294,7 +292,8 @@ def stream_graph(
     graph_input,
     config,
     thread_id,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    user_id: int
 ):
 
     final_blog = ""
@@ -348,6 +347,7 @@ def stream_graph(
             config=config,
             stream_mode="updates",
         ):
+            logger.info("LANGGRAPH STREAM UPDATE: %s", update)
 
             # --------------------------------------
             # HUMAN REVIEW INTERRUPT
@@ -480,6 +480,13 @@ def stream_graph(
                 # ----------------------------------
                 # OTHER STAGE EVENTS
                 # ----------------------------------
+
+                logger.info(
+                    "NODE UPDATE RECEIVED: %s | STAGE: %s | OUTPUT: %s",
+                    node_name,
+                    NODE_STAGES.get(node_name),
+                    node_output
+                )
 
                 stage = NODE_STAGES.get(node_name)
 
@@ -670,6 +677,7 @@ def stream_graph(
                 index_document_in_background,
                 title=document_title,
                 file_path=document_path,
+                user_id=user_id
             )
 
             logger.info(
@@ -708,8 +716,14 @@ def stream_graph(
 @router.post("/generate")
 def generate_blog(
     request: BlogRequest,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
+
+    logger.info(
+        f"Blog generation requested by user_id {current_user.id}"
+    )
 
     thread_id = str(uuid.uuid4())
 
@@ -720,69 +734,262 @@ def generate_blog(
     }
 
     graph_input = {
-        "topic": request.topic,
-        "sections": [],
-        "draft": "",
-        "final": "",
-        "web_search_count": 0,
-        "research_steps": 0,
-        "fetch_count": 0,
-        "evidence": [],
+            "topic": request.topic,
+            "sections": [],
+            "draft": "",
+            "final": "",
+            "web_search_count": 0,
+            "research_steps": 0,
+            "fetch_count": 0,
+            "evidence": [],
     }
 
-    return StreamingResponse(
-        stream_graph(
-            graph_input,
-            config,
-            thread_id,
-            background_tasks,
-        ),
-        media_type="text/event-stream",
-        background=background_tasks,
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive",
-        },
+    try:
+        blog_thread = BlogThread(
+            thread_id=thread_id,
+            user_id=current_user.id,
+            status="queued",
+        )
+
+        db.add(blog_thread)
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
+
+    background_tasks.add_task(
+        run_blog_job,
+        thread_id,
+        graph_input,
+        config,
+        current_user.id,
     )
+
+    return {
+        "thread_id": thread_id,
+        "status": "queued",
+        "message": "Blog generation started."
+    }
 
 
 # ==================================================
 # HUMAN REVIEW
 # ==================================================
 
-@router.post("/review")
+@router.post("/review", status_code=202)
 def submit_review(
     request: ReviewRequest,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    # check if thread belongs to logged-in user
+    blog_thread = (
+        db.query(BlogThread)
+        .filter(
+            BlogThread.thread_id == request.thread_id,
+            BlogThread.user_id == current_user.id,
+        )
+        .first()
+    )
 
-    config = {
-        "configurable": {
-            "thread_id": request.thread_id,
-        }
-    }
+    if not blog_thread:
+        raise HTTPException(
+            status_code=404,
+            detail="Blog generation job not found.",
+        )
+
+    # ensure graph is waiting for human review
+    if blog_thread.status != "waiting_for_review":
+        raise HTTPException(
+            status_code=400,
+            detail="This blog is not waiting for review."
+        )
 
     resume_data = {
-        "review": request.review,
+        "review": request.review
     }
 
     if request.edited_plan is not None:
-
         resume_data["edited_plan"] = request.edited_plan
 
-    return StreamingResponse(
-        stream_graph(
-            Command(resume=resume_data),
-            config,
-            request.thread_id,
-            background_tasks,
-        ),
-        media_type="text/event-stream",
-        background=background_tasks,
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive",
-        },
+    # use same langgraph thread id
+    config = {
+        "configurable":{
+            "thread_id": request.thread_id
+        }
+    }
+
+    blog_thread.status = "running"
+    db.commit()
+
+    # resume graph in background
+    background_tasks.add_task(
+        resume_blog_job,
+        request.thread_id,
+        resume_data,
+        config,
+        current_user.id
     )
+
+    return {
+        "thread_id": request.thread_id,
+        "status": "running",
+        "message": "Blog generation resumed",
+    }
+
+
+
+@router.get("/my-blogs")
+def get_my_blogs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Return the logged-in user's saved blogs.
+    """
+
+    blogs = (
+        db.query(MarkdownFile)
+        .filter(MarkdownFile.user_id == current_user.id)
+        .order_by(MarkdownFile.id.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": blog.id,
+            "title": blog.title
+        }
+        for blog in blogs
+    ]
+
+
+@router.get("/my-blogs/{blog_id}")
+def get_my_blog(
+    blog_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Return the full Markdown content of one blog.
+    Only its owner can access it.
+    """
+
+    blog = (
+        db.query(MarkdownFile)
+        .filter(
+            MarkdownFile.id == blog_id,
+            MarkdownFile.user_id == current_user.id
+        )
+        .first()
+    )
+
+    if not blog:
+        raise HTTPException(
+            status_code=404,
+            detail="Blog not found.",
+        )
+
+    file_path = Path(blog.file_path)
+
+    if not file_path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="Blog content file not found."
+        )
+
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except OSError:
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to read blog content."
+        )
+
+    return {
+        "id": blog.id,
+        "title": blog.title,
+        "content": content
+    }
+
+
+@router.get("/status/{thread_id}")
+def get_blog_status(
+    thread_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    blog_thread = (
+        db.query(BlogThread)
+        .filter(
+            BlogThread.thread_id == thread_id,
+            BlogThread.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not blog_thread:
+        raise HTTPException(
+            status_code=404,
+            detail="Blog generation job not found.",
+        )
+
+    return {
+        "thread_id": blog_thread.thread_id,
+        "status": blog_thread.status,
+        "current_stage": blog_thread.current_stage,
+        "error": blog_thread.error,
+        "review_data": blog_thread.review_data,
+    }
+
+
+
+@router.get("/events/{thread_id}")
+def get_blog_events(
+    thread_id: str,
+    after_id: int = 0,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Verify thread ownership.
+    blog_thread = (
+        db.query(BlogThread)
+        .filter(
+            BlogThread.thread_id == thread_id,
+            BlogThread.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not blog_thread:
+        raise HTTPException(
+            status_code=404,
+            detail="Blog generation job not found.",
+        )
+
+    # Fetch events in chronological order.
+    events = (
+        db.query(BlogJobEvent)
+        .filter(
+            BlogJobEvent.thread_id == thread_id,
+            BlogJobEvent.id > after_id,
+        )
+        .order_by(BlogJobEvent.id.asc())
+        .all()
+    )
+
+    return {
+        "thread_id": thread_id,
+        "events": [
+            {
+                "id": event.id,
+                "event_type": event.event_type,
+                "event_data": event.event_data,
+                "created_at": event.created_at.isoformat()
+                if event.created_at else None,
+            }
+            for event in events
+        ],
+    }
